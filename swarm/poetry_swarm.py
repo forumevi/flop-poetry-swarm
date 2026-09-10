@@ -11,7 +11,7 @@ import os
 # GitHub Actions ortamında içe aktarma yollarını garantiye al
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from wire_format import VerifiedTurnV3
+from wire_format import VerifiedTurn
 from evaluator import PoetryEvaluator
 from fallback_engine import SwarmFallbackEngine
 
@@ -83,7 +83,7 @@ class AuditorAgent:
         self.agent_id = agent_id
         self.evaluator = PoetryEvaluator()
 
-    def audit_and_settle(self, state: dict, variants: list) -> VerifiedTurnV3:
+    def audit_and_settle(self, state: dict, variants: list) -> VerifiedTurn:
         """
         Gelen varyasyonları semantik olarak skorlar, en iyisini seçer ve V3 payload oluşturur.
         """
@@ -103,7 +103,7 @@ class AuditorAgent:
         }
 
         # V3 VerifiedTurn Yapısı
-        turn = VerifiedTurnV3(
+        turn = VerifiedTurn(
             turn_id=1,
             compute_channel="pallet_compute_channel",
             agent_pubkey=self.agent_id,
@@ -120,7 +120,7 @@ class SwarmOrchestrator:
         self.generator = GeneratorAgent()
         self.auditor = AuditorAgent()
 
-    def run_pipeline(self, prompt: str, theme: str) -> VerifiedTurnV3:
+    def run_pipeline(self, prompt: str, theme: str) -> VerifiedTurn:
         print(f"[Swarm] Pipeline Başlatıldı | Tema: '{theme}'")
         
         # 1. Architect State Lock
