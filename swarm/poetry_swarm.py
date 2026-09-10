@@ -5,9 +5,16 @@ Enhanced with Fallback Engine and Best-of-N Semantic Evaluation
 """
 import time
 import json
+import sys
+import os
+
+# GitHub Actions ortamında içe aktarma yollarını garantiye al
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from wire_format import VerifiedTurnV3
 from evaluator import PoetryEvaluator
 from fallback_engine import SwarmFallbackEngine
+
 
 class ArchitectAgent:
     def __init__(self, agent_id: str = "architect-01"):
@@ -23,6 +30,7 @@ class ArchitectAgent:
             "stanza_count": 2,
             "status": "LOCKED"
         }
+
 
 class GeneratorAgent:
     def __init__(self, agent_id: str = "generator-01"):
@@ -69,6 +77,7 @@ class GeneratorAgent:
 
         return variants
 
+
 class AuditorAgent:
     def __init__(self, agent_id: str = "auditor-01"):
         self.agent_id = agent_id
@@ -104,6 +113,7 @@ class AuditorAgent:
         )
         return turn
 
+
 class SwarmOrchestrator:
     def __init__(self):
         self.architect = ArchitectAgent()
@@ -127,6 +137,7 @@ class SwarmOrchestrator:
         print(f"[Auditor] Output Hash: {verified_turn.output_hash}")
         
         return verified_turn
+
 
 if __name__ == "__main__":
     swarm = SwarmOrchestrator()
