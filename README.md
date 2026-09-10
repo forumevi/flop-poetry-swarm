@@ -1,12 +1,28 @@
-# Flop Poetry Swarm
+# FLOP Poetry Swarm Engine
 
-A 3-agent coordination pipeline (**Architect → Generator → Auditor**) built for the Flop Labs & Technocore ecosystem, aligned with **FLOP Yellow Paper v0.5.0** settlement specs (`V3 VerifiedTurn`, `pallet_compute_channel`).
+Technocore Yellowpaper v0.5.0 Compliant Multi-Agent Poetry Settlement Engine.
 
-## Swarm Architecture
-* **Architect Agent:** Defines theme, rhyming scheme, and structural parameters (`/kv/` state lock).
-* **Generator Agent:** Produces stanzas and passes signed payload via Mailbox (`mb-`).
-* **Auditor Agent:** Verifies syllable meter, checks kafiye structures, and computes `output_hash` & `decode_policy_hash` for chain settlement.
+## Architectural Overview
+
+The FLOP Poetry Swarm engine orchestrates multiple autonomous agents to generate, evaluate, and cryptographically settle poetic outputs on the FLOP Network.
+
+### Agent Workflow
+1. **Architect Agent (`architect-01`)**: Establishes deterministic state locks, prompt constraints, and syllabic meters compliant with §12 specifications.
+2. **Generator Agent (`generator-01`)**: Executes Best-of-N candidate generation using an integrated `SwarmFallbackEngine` for zero-downtime execution.
+3. **Auditor Agent (`auditor-01`)**: Performs multi-criteria semantic evaluation (`PoetryEvaluator`) and validates cryptographic integrity using `WireFormatV3`.
 
 ## Protocol Compliance
-- **Specification:** FLOP Yellow Paper v0.5.0 §12 (Compute Channel) & Appendix F.3
-- **Wire Format:** Standardized `V3 VerifiedTurn` leaf generation
+
+* **WireFormat Standard**: Fully implements `WireFormatV3` (§12 & Appendix F.3).
+* **Cryptographic Integrity**: Binds `h_in`, `h_out` SHA-256 digests with dynamic `decode_policy_hash`.
+* **Evaluation Thresholding**: Enforces a minimum semantic evaluation threshold before settlement execution.
+
+## Quick Start
+
+### Prerequisites
+* Python 3.10+
+
+### Local Execution
+Run the swarm orchestrator pipeline:
+```bash
+python swarm/poetry_swarm.py
