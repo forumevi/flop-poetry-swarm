@@ -8,10 +8,19 @@ import json
 import sys
 import os
 
-# GitHub Actions ortamında içe aktarma yollarını garantiye al
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Bulunduğu klasörü ve kök dizini sys.path'e ekle
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+if CURRENT_DIR not in sys.path:
+    sys.path.insert(0, CURRENT_DIR)
 
-from wire_format import VerifiedTurn
+try:
+    from wire_format import VerifiedTurnPayload as VerifiedTurn
+except ImportError:
+    try:
+        from wire_format import VerifiedTurn
+    except ImportError:
+        from swarm.wire_format import VerifiedTurn
+
 from evaluator import PoetryEvaluator
 from fallback_engine import SwarmFallbackEngine
 
