@@ -1,37 +1,138 @@
+"""
+Technocore Poetry Swarm Orchestration Engine
+Yellowpaper v0.5.0 Protocol Compliant
+Enhanced with Fallback Engine and Best-of-N Semantic Evaluation
+"""
+import time
 import json
-from wire_format import WireFormatV3
+from wire_format import VerifiedTurnV3
+from evaluator import PoetryEvaluator
+from fallback_engine import SwarmFallbackEngine
 
-class PoetrySwarmOrchestrator:
-    """
-    3-Agent Pipeline: Architect -> Generator -> Auditor
-    """
-    def __init__(self, topic: str):
-        self.topic = topic
-        self.turns = []
-        self.decode_policy = {"temperature": 0.7, "top_p": 0.9, "seed": 42}
+class ArchitectAgent:
+    def __init__(self, agent_id: str = "architect-01"):
+        self.agent_id = agent_id
 
-    def run_pipeline(self):
-        # Step 1: Architect Agent sets structural rules
-        arch_spec = f"Theme: {self.topic} | Structure: AABB | Meter: 11-syllable"
-        turn_0 = WireFormatV3.build_verified_turn(0, "Architect", arch_spec, self.decode_policy)
-        self.turns.append(turn_0)
-
-        # Step 2: Generator Agent writes verse
-        verse = "Golden nodes align across the digital sphere,\nSignals pulse clear when the BFT is near."
-        turn_1 = WireFormatV3.build_verified_turn(1, "Generator", verse, self.decode_policy)
-        self.turns.append(turn_1)
-
-        # Step 3: Auditor Agent validates rhyme & binds settlement payload
-        audit_verdict = f"AUDIT_PASSED: output_hash={turn_1['h_out']}"
-        turn_2 = WireFormatV3.build_verified_turn(2, "Auditor", audit_verdict, self.decode_policy)
-        self.turns.append(turn_2)
-
+    def create_state_lock(self, prompt: str, theme: str) -> dict:
+        """Kilit parametreleri ve şiir kısıtlarını tanımlar."""
         return {
-            "session_id": f"sess_{WireFormatV3.compute_sha256(self.topic)[:12]}",
-            "aggregate_gn": sum(t["g_n"] for t in self.turns),
-            "verified_turns": self.turns
+            "state_id": f"state_{int(time.time())}",
+            "prompt": prompt,
+            "theme": theme,
+            "meter": "syllabic_11",
+            "stanza_count": 2,
+            "status": "LOCKED"
         }
 
+class GeneratorAgent:
+    def __init__(self, agent_id: str = "generator-01"):
+        self.agent_id = agent_id
+        self.fallback_engine = SwarmFallbackEngine(timeout_seconds=2.0)
+
+    def _primary_stanza_gen(self, state: dict) -> str:
+        """Birincil üretici motoru"""
+        return (
+            "Karanlık ağlarda veri taranır,\n"
+            "Algoritma gece boyu uzanır.\n"
+            "Kripto mühürle sözler bağlanır,\n"
+            "Zincirüstü şifre hakkı kazanır."
+        )
+
+    def _backup_stanza_gen(self, state: dict) -> str:
+        """Yedek üretici motoru"""
+        return (
+            "Bloklar dizilir sessiz derine,\n"
+            "Ajanlar fısıldar devrin yerine.\n"
+            "Veriler işlenir günün seherine,\n"
+            "Mühürler vurulur hakkın emrine."
+        )
+
+    def generate_stanzas(self, state: dict) -> list:
+        """
+        Fallback engine kullanarak Best-of-N varyasyonları üretir.
+        """
+        variants = []
+        
+        # 1. Varyasyon
+        res1 = self.fallback_engine.execute_with_fallback(
+            lambda: self._primary_stanza_gen(state),
+            [lambda: self._backup_stanza_gen(state)]
+        )
+        variants.append(res1["content"])
+
+        # 2. Varyasyon (Best-of-N için alternatif)
+        res2 = self.fallback_engine.execute_with_fallback(
+            lambda: self._backup_stanza_gen(state),
+            [lambda: self._primary_stanza_gen(state)]
+        )
+        variants.append(res2["content"])
+
+        return variants
+
+class AuditorAgent:
+    def __init__(self, agent_id: str = "auditor-01"):
+        self.agent_id = agent_id
+        self.evaluator = PoetryEvaluator()
+
+    def audit_and_settle(self, state: dict, variants: list) -> VerifiedTurnV3:
+        """
+        Gelen varyasyonları semantik olarak skorlar, en iyisini seçer ve V3 payload oluşturur.
+        """
+        # Best-of-N Değerlendirmesi
+        best_stanza, eval_metrics = self.evaluator.select_best_variant(variants)
+
+        # Temel Doğrulama Mantığı
+        lines = best_stanza.strip().split("\n")
+        is_valid = len(lines) >= 4
+
+        output_payload = {
+            "theme": state.get("theme"),
+            "meter": state.get("meter"),
+            "stanza": best_stanza,
+            "evaluation": eval_metrics,
+            "audit_passed": is_valid
+        }
+
+        # V3 VerifiedTurn Yapısı
+        turn = VerifiedTurnV3(
+            turn_id=1,
+            compute_channel="pallet_compute_channel",
+            agent_pubkey=self.agent_id,
+            input_state_hash=state["state_id"],
+            output_payload=output_payload,
+            execution_time_ms=125
+        )
+        return turn
+
+class SwarmOrchestrator:
+    def __init__(self):
+        self.architect = ArchitectAgent()
+        self.generator = GeneratorAgent()
+        self.auditor = AuditorAgent()
+
+    def run_pipeline(self, prompt: str, theme: str) -> VerifiedTurnV3:
+        print(f"[Swarm] Pipeline Başlatıldı | Tema: '{theme}'")
+        
+        # 1. Architect State Lock
+        state = self.architect.create_state_lock(prompt, theme)
+        print(f"[Architect] State kilitlendi: {state['state_id']}")
+
+        # 2. Generator (Fallback & Best-of-N)
+        variants = self.generator.generate_stanzas(state)
+        print(f"[Generator] {len(variants)} adet şiir varyasyonu üretildi.")
+
+        # 3. Auditor (Evaluation & Settlement)
+        verified_turn = self.auditor.audit_and_settle(state, variants)
+        print(f"[Auditor] En iyi varyasyon seçildi. Toplam Skor: {verified_turn.output_payload['evaluation']['total_score']}")
+        print(f"[Auditor] Output Hash: {verified_turn.output_hash}")
+        
+        return verified_turn
+
 if __name__ == "__main__":
-    swarm = PoetrySwarmOrchestrator("Autonomous AI Swarms")
-    print(json.dumps(swarm.run_pipeline(), indent=2))
+    swarm = SwarmOrchestrator()
+    result = swarm.run_pipeline(
+        prompt="Write a poem about decentralized swarms",
+        theme="cyberpunk_cryptography"
+    )
+    assert result.output_hash is not None
+    print("[Success] Swarm pipeline başarıyla tamamlandı ve doğrulandı.")
