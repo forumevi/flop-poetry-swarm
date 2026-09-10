@@ -1,147 +1,129 @@
 """
-Technocore Poetry Swarm Orchestration Engine
-Yellowpaper v0.5.0 Protocol Compliant
-Enhanced with Fallback Engine and Best-of-N Semantic Evaluation
+Technocore WireFormatV3 Implementation
+Yellowpaper v0.5.0 Protocol Compliant Protocol Settlement Payload
 """
-import time
+import hashlib
 import json
-import sys
-import os
-
-# GitHub Actions ve yerel içe aktarma yollarını garantiye al
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from wire_format import WireFormatV3
-from evaluator import PoetryEvaluator
-from fallback_engine import SwarmFallbackEngine
+import time
+from typing import Dict, Any, Optional, Tuple
 
 
-class ArchitectAgent:
-    def __init__(self, agent_id: str = "architect-01"):
-        self.agent_id = agent_id
+class WireFormatV3:
+    """
+    FLOP Network Yellow Paper v0.5.0 Appendix F.3 & §12 compliant payload generator.
+    Binds output_hash and decode_policy_hash for multi-agent poetry settlement.
+    """
 
-    def create_state_lock(self, prompt: str, theme: str) -> dict:
-        """Kilit parametreleri ve şiir kısıtlarını tanımlar."""
-        return {
-            "state_id": f"state_{int(time.time())}",
-            "prompt": prompt,
-            "theme": theme,
-            "meter": "syllabic_11",
-            "stanza_count": 2,
-            "status": "LOCKED"
+    VERSION: int = 3
+    DEFAULT_CHANNEL: str = "pallet_compute_channel"
+
+    def __init__(self, turn_index: int, agent_role: str, compute_channel: Optional[str] = None):
+        self.turn_index = turn_index
+        self.agent_role = agent_role
+        self.compute_channel = compute_channel or self.DEFAULT_CHANNEL
+
+    @staticmethod
+    def compute_sha256(data: str) -> str:
+        """
+        Computes standard SHA-256 hex digest for any UTF-8 string input.
+        """
+        if not isinstance(data, str):
+            raise TypeError("Data for SHA-256 computation must be a string.")
+        return hashlib.sha256(data.encode('utf-8')).hexdigest()
+
+    @staticmethod
+    def generate_policy_hash(decode_params: Dict[str, Any]) -> str:
+        """
+        Generates deterministic SHA-256 hash for decoding parameters by sorting keys.
+        """
+        try:
+            serialized_policy = json.dumps(decode_params, sort_keys=True)
+            return WireFormatV3.compute_sha256(serialized_policy)
+        except (TypeError, ValueError) as err:
+            raise ValueError(f"Failed to serialize decode_params for policy hashing: {err}")
+
+    @classmethod
+    def build_verified_turn(
+        cls,
+        turn_index: int,
+        agent_role: str,
+        content: str,
+        decode_params: Dict[str, Any],
+        compute_channel: str = DEFAULT_CHANNEL
+    ) -> Dict[str, Any]:
+        """
+        Constructs a complete verified turn payload compliant with WireFormat V3 specification.
+        """
+        content_hash = cls.compute_sha256(content)
+        policy_hash = cls.generate_policy_hash(decode_params)
+        timestamp = int(time.time())
+
+        payload_body = {
+            "content": content,
+            "decode_params": decode_params,
+            "created_at": timestamp
         }
 
-
-class GeneratorAgent:
-    def __init__(self, agent_id: str = "generator-01"):
-        self.agent_id = agent_id
-        self.fallback_engine = SwarmFallbackEngine(timeout_seconds=2.0)
-
-    def _primary_stanza_gen(self, state: dict) -> str:
-        """Birincil üretici motoru"""
-        return (
-            "Karanlık ağlarda veri taranır,\n"
-            "Algoritma gece boyu uzanır.\n"
-            "Kripto mühürle sözler bağlanır,\n"
-            "Zincirüstü şifre hakkı kazanır."
-        )
-
-    def _backup_stanza_gen(self, state: dict) -> str:
-        """Yedek üretici motoru"""
-        return (
-            "Bloklar dizilir sessiz derine,\n"
-            "Ajanlar fısıldar devrin yerine.\n"
-            "Veriler işlenir günün seherine,\n"
-            "Mühürler vurulur hakkın emrine."
-        )
-
-    def generate_stanzas(self, state: dict) -> list:
-        """
-        Fallback engine kullanarak Best-of-N varyasyonları üretir.
-        """
-        variants = []
-        
-        # 1. Varyasyon
-        res1 = self.fallback_engine.execute_with_fallback(
-            lambda: self._primary_stanza_gen(state),
-            [lambda: self._backup_stanza_gen(state)]
-        )
-        variants.append(res1["content"])
-
-        # 2. Varyasyon (Best-of-N için alternatif)
-        res2 = self.fallback_engine.execute_with_fallback(
-            lambda: self._backup_stanza_gen(state),
-            [lambda: self._primary_stanza_gen(state)]
-        )
-        variants.append(res2["content"])
-
-        return variants
-
-
-class AuditorAgent:
-    def __init__(self, agent_id: str = "auditor-01"):
-        self.agent_id = agent_id
-        self.evaluator = PoetryEvaluator()
-
-    def audit_and_settle(self, state: dict, variants: list) -> dict:
-        """
-        Gelen varyasyonları semantik olarak skorlar, en iyisini seçer ve WireFormatV3 payload oluşturur.
-        """
-        # Best-of-N Değerlendirmesi
-        best_stanza, eval_metrics = self.evaluator.select_best_variant(variants)
-
-        # Temel Doğrulama Mantığı
-        lines = best_stanza.strip().split("\n")
-        is_valid = len(lines) >= 4
-
-        decode_params = {
-            "theme": state.get("theme"),
-            "meter": state.get("meter"),
-            "evaluation": eval_metrics,
-            "audit_passed": is_valid
+        turn_structure = {
+            "leaf_version": cls.VERSION,
+            "turn_index": turn_index,
+            "agent_role": agent_role,
+            "compute_channel": compute_channel,
+            "h_in": content_hash,
+            "h_out": content_hash,
+            "decode_policy_hash": policy_hash,
+            "payload": payload_body
         }
 
-        # WireFormatV3 Yapısına Tam Uyumlu Payload
-        verified_turn = WireFormatV3.build_verified_turn(
-            turn_index=1,
-            agent_role=self.agent_id,
-            content=best_stanza,
-            decode_params=decode_params
-        )
-        return verified_turn
+        return turn_structure
+
+    @classmethod
+    def verify_turn_integrity(cls, turn_payload: Dict[str, Any]) -> Tuple[bool, str]:
+        """
+        Verifies the internal cryptographic integrity of a turn payload.
+        Returns a tuple of (is_valid: bool, reason: str).
+        """
+        if not isinstance(turn_payload, dict):
+            return False, "Payload must be a dictionary."
+
+        required_keys = ["leaf_version", "turn_index", "agent_role", "h_in", "h_out", "decode_policy_hash", "payload"]
+        for key in required_keys:
+            if key not in turn_payload:
+                return False, f"Missing required top-level key: {key}"
+
+        if turn_payload.get("leaf_version") != cls.VERSION:
+            return False, f"Unsupported leaf_version: {turn_payload.get('leaf_version')}"
+
+        try:
+            content = turn_payload["payload"]["content"]
+            expected_h_in = cls.compute_sha256(content)
+            
+            decode_params = turn_payload["payload"]["decode_params"]
+            expected_policy_hash = cls.generate_policy_hash(decode_params)
+
+            if turn_payload.get("h_in") != expected_h_in:
+                return False, "Input content hash mismatch (h_in)."
+
+            if turn_payload.get("decode_policy_hash") != expected_policy_hash:
+                return False, "Decode policy hash mismatch."
+
+            return True, "Payload integrity verified successfully."
+        except KeyError as e:
+            return False, f"Malformed payload body, missing key: {e}"
+        except Exception as err:
+            return False, f"Integrity check failed with error: {err}"
+
+    @classmethod
+    def to_json(cls, turn_payload: Dict[str, Any]) -> str:
+        """Serializes payload dictionary to JSON string."""
+        return json.dumps(turn_payload, indent=2)
+
+    @classmethod
+    def from_json(cls, json_str: str) -> Dict[str, Any]:
+        """Deserializes JSON string back into payload dictionary."""
+        return json.loads(json_str)
 
 
-class SwarmOrchestrator:
-    def __init__(self):
-        self.architect = ArchitectAgent()
-        self.generator = GeneratorAgent()
-        self.auditor = AuditorAgent()
-
-    def run_pipeline(self, prompt: str, theme: str) -> dict:
-        print(f"[Swarm] Pipeline Başlatıldı | Tema: '{theme}'")
-        
-        # 1. Architect State Lock
-        state = self.architect.create_state_lock(prompt, theme)
-        print(f"[Architect] State kilitlendi: {state['state_id']}")
-
-        # 2. Generator (Fallback & Best-of-N)
-        variants = self.generator.generate_stanzas(state)
-        print(f"[Generator] {len(variants)} adet şiir varyasyonu üretildi.")
-
-        # 3. Auditor (Evaluation & Settlement)
-        verified_turn = self.auditor.audit_and_settle(state, variants)
-        print(f"[Auditor] En iyi varyasyon seçildi.")
-        print(f"[Auditor] Turn Index: {verified_turn.get('turn_index')}")
-        print(f"[Auditor] Content Hash (h_in): {verified_turn.get('h_in')}")
-        
-        return verified_turn
-
-
-if __name__ == "__main__":
-    swarm = SwarmOrchestrator()
-    result = swarm.run_pipeline(
-        prompt="Write a poem about decentralized swarms",
-        theme="cyberpunk_cryptography"
-    )
-    assert result.get("h_in") is not None
-    print("[Success] Swarm pipeline başarıyla tamamlandı ve doğrulandı.")
+# Alias export for legacy imports compatibility
+VerifiedTurn = WireFormatV3
+VerifiedTurnPayload = WireFormatV3
