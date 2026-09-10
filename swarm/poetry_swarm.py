@@ -7,6 +7,7 @@ import time
 import json
 import sys
 import os
+import hashlib
 
 # Ensure local dynamic path resolution
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -21,9 +22,14 @@ class ArchitectAgent:
         self.agent_id = agent_id
 
     def create_state_lock(self, prompt: str, theme: str) -> dict:
-        """Defines state lock parameters and poetry constraints."""
+        """
+        Defines deterministic state lock parameters and poetry constraints compliant with Yellowpaper §12.
+        """
+        raw_seed = f"{prompt}:{theme}"
+        deterministic_hash = hashlib.sha256(raw_seed.encode('utf-8')).hexdigest()[:12]
+        
         return {
-            "state_id": f"state_{int(time.time())}",
+            "state_id": f"state_{deterministic_hash}",
             "prompt": prompt,
             "theme": theme,
             "meter": "syllabic_11",
@@ -79,20 +85,26 @@ class GeneratorAgent:
 
 
 class AuditorAgent:
-    def __init__(self, agent_id: str = "auditor-01"):
+    def __init__(self, agent_id: str = "auditor-01", score_threshold: float = 0.50):
         self.agent_id = agent_id
         self.evaluator = PoetryEvaluator()
+        self.score_threshold = score_threshold
 
     def audit_and_settle(self, state: dict, variants: list) -> dict:
         """
         Evaluates variants semantically, selects the best output, and constructs WireFormatV3 payload.
+        Enforces evaluation threshold validation.
         """
         best_stanza, eval_metrics = self.evaluator.select_best_variant(variants)
 
+        total_score = eval_metrics.get("total_score", 0.0)
         lines = best_stanza.strip().split("\n")
-        is_valid = len(lines) >= 4
+        
+        # Validates line constraints and semantic score threshold
+        is_valid = (len(lines) >= 4) and (total_score >= self.score_threshold)
 
         decode_params = {
+            "state_id": state.get("state_id"),
             "theme": state.get("theme"),
             "meter": state.get("meter"),
             "evaluation": eval_metrics,
@@ -119,7 +131,7 @@ class SwarmOrchestrator:
         
         # 1. Architect State Lock
         state = self.architect.create_state_lock(prompt, theme)
-        print(f"[Architect] State locked: {state['state_id']}")
+        print(f"[Architect] Deterministic State locked: {state['state_id']}")
 
         # 2. Generator (Fallback & Best-of-N)
         variants = self.generator.generate_stanzas(state)
@@ -127,7 +139,7 @@ class SwarmOrchestrator:
 
         # 3. Auditor (Evaluation & Settlement)
         verified_turn = self.auditor.audit_and_settle(state, variants)
-        print(f"[Auditor] Best variant selected successfully.")
+        print(f"[Auditor] Best variant evaluated and settled.")
         print(f"[Auditor] Turn Index: {verified_turn.get('turn_index')}")
         print(f"[Auditor] Content Hash (h_in): {verified_turn.get('h_in')}")
         
