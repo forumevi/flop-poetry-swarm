@@ -12,4 +12,4 @@ jobs:
         with:
           python-version: '3.10'
       - name: Run Poetry Swarm Pipeline
-        run: python swarm/poetry_swarm.py 
+        run: python swarm/poetry_swarm.py
