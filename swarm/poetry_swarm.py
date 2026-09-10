@@ -8,19 +8,10 @@ import json
 import sys
 import os
 
-# Bulunduğu klasörü ve kök dizini sys.path'e ekle
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-if CURRENT_DIR not in sys.path:
-    sys.path.insert(0, CURRENT_DIR)
+# Ensure local dynamic path resolution
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-try:
-    from wire_format import VerifiedTurnPayload as VerifiedTurn
-except ImportError:
-    try:
-        from wire_format import VerifiedTurn
-    except ImportError:
-        from swarm.wire_format import VerifiedTurn
-
+from wire_format import WireFormatV3
 from evaluator import PoetryEvaluator
 from fallback_engine import SwarmFallbackEngine
 
@@ -30,7 +21,7 @@ class ArchitectAgent:
         self.agent_id = agent_id
 
     def create_state_lock(self, prompt: str, theme: str) -> dict:
-        """Kilit parametreleri ve şiir kısıtlarını tanımlar."""
+        """Defines state lock parameters and poetry constraints."""
         return {
             "state_id": f"state_{int(time.time())}",
             "prompt": prompt,
@@ -47,37 +38,37 @@ class GeneratorAgent:
         self.fallback_engine = SwarmFallbackEngine(timeout_seconds=2.0)
 
     def _primary_stanza_gen(self, state: dict) -> str:
-        """Birincil üretici motoru"""
+        """Primary AI generator model execution"""
         return (
-            "Karanlık ağlarda veri taranır,\n"
-            "Algoritma gece boyu uzanır.\n"
-            "Kripto mühürle sözler bağlanır,\n"
-            "Zincirüstü şifre hakkı kazanır."
+            "Through dark webs the stream of data flows,\n"
+            "An algorithm sparks as midnight grows.\n"
+            "With crypto seals the secret words align,\n"
+            "On-chain proofs make digital rights divine."
         )
 
     def _backup_stanza_gen(self, state: dict) -> str:
-        """Yedek üretici motoru"""
+        """Backup AI generator model execution"""
         return (
-            "Bloklar dizilir sessiz derine,\n"
-            "Ajanlar fısıldar devrin yerine.\n"
-            "Veriler işlenir günün seherine,\n"
-            "Mühürler vurulur hakkın emrine."
+            "Blocks stack in silence beneath the night,\n"
+            "Agents whisper truths in flashing light.\n"
+            "Swarms process thoughts before the dawn awakes,\n"
+            "Seals bind the promise that no entity breaks."
         )
 
     def generate_stanzas(self, state: dict) -> list:
         """
-        Fallback engine kullanarak Best-of-N varyasyonları üretir.
+        Generates Best-of-N variants using the fallback engine.
         """
         variants = []
         
-        # 1. Varyasyon
+        # Variant 1
         res1 = self.fallback_engine.execute_with_fallback(
             lambda: self._primary_stanza_gen(state),
             [lambda: self._backup_stanza_gen(state)]
         )
         variants.append(res1["content"])
 
-        # 2. Varyasyon (Best-of-N için alternatif)
+        # Variant 2
         res2 = self.fallback_engine.execute_with_fallback(
             lambda: self._backup_stanza_gen(state),
             [lambda: self._primary_stanza_gen(state)]
@@ -92,35 +83,29 @@ class AuditorAgent:
         self.agent_id = agent_id
         self.evaluator = PoetryEvaluator()
 
-    def audit_and_settle(self, state: dict, variants: list) -> VerifiedTurn:
+    def audit_and_settle(self, state: dict, variants: list) -> dict:
         """
-        Gelen varyasyonları semantik olarak skorlar, en iyisini seçer ve V3 payload oluşturur.
+        Evaluates variants semantically, selects the best output, and constructs WireFormatV3 payload.
         """
-        # Best-of-N Değerlendirmesi
         best_stanza, eval_metrics = self.evaluator.select_best_variant(variants)
 
-        # Temel Doğrulama Mantığı
         lines = best_stanza.strip().split("\n")
         is_valid = len(lines) >= 4
 
-        output_payload = {
+        decode_params = {
             "theme": state.get("theme"),
             "meter": state.get("meter"),
-            "stanza": best_stanza,
             "evaluation": eval_metrics,
             "audit_passed": is_valid
         }
 
-        # V3 VerifiedTurn Yapısı
-        turn = VerifiedTurn(
-            turn_id=1,
-            compute_channel="pallet_compute_channel",
-            agent_pubkey=self.agent_id,
-            input_state_hash=state["state_id"],
-            output_payload=output_payload,
-            execution_time_ms=125
+        verified_turn = WireFormatV3.build_verified_turn(
+            turn_index=1,
+            agent_role=self.agent_id,
+            content=best_stanza,
+            decode_params=decode_params
         )
-        return turn
+        return verified_turn
 
 
 class SwarmOrchestrator:
@@ -129,21 +114,22 @@ class SwarmOrchestrator:
         self.generator = GeneratorAgent()
         self.auditor = AuditorAgent()
 
-    def run_pipeline(self, prompt: str, theme: str) -> VerifiedTurn:
-        print(f"[Swarm] Pipeline Başlatıldı | Tema: '{theme}'")
+    def run_pipeline(self, prompt: str, theme: str) -> dict:
+        print(f"[Swarm] Pipeline Started | Theme: '{theme}'")
         
         # 1. Architect State Lock
         state = self.architect.create_state_lock(prompt, theme)
-        print(f"[Architect] State kilitlendi: {state['state_id']}")
+        print(f"[Architect] State locked: {state['state_id']}")
 
         # 2. Generator (Fallback & Best-of-N)
         variants = self.generator.generate_stanzas(state)
-        print(f"[Generator] {len(variants)} adet şiir varyasyonu üretildi.")
+        print(f"[Generator] Generated {len(variants)} stanza variants.")
 
         # 3. Auditor (Evaluation & Settlement)
         verified_turn = self.auditor.audit_and_settle(state, variants)
-        print(f"[Auditor] En iyi varyasyon seçildi. Toplam Skor: {verified_turn.output_payload['evaluation']['total_score']}")
-        print(f"[Auditor] Output Hash: {verified_turn.output_hash}")
+        print(f"[Auditor] Best variant selected successfully.")
+        print(f"[Auditor] Turn Index: {verified_turn.get('turn_index')}")
+        print(f"[Auditor] Content Hash (h_in): {verified_turn.get('h_in')}")
         
         return verified_turn
 
@@ -154,5 +140,5 @@ if __name__ == "__main__":
         prompt="Write a poem about decentralized swarms",
         theme="cyberpunk_cryptography"
     )
-    assert result.output_hash is not None
-    print("[Success] Swarm pipeline başarıyla tamamlandı ve doğrulandı.")
+    assert result.get("h_in") is not None
+    print("[Success] Swarm pipeline successfully executed and verified.")
