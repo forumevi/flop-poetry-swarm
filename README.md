@@ -25,4 +25,6 @@ The FLOP Poetry Swarm engine orchestrates multiple autonomous agents to generate
 ### Local Execution
 Run the swarm orchestrator pipeline:
 ```bash
-python swarm/poetry_swarm.py
+### python swarm/poetry_swarm.py
+CI/CD Verification
+Automated pipeline tests are configured via GitHub Actions under .github/workflows/test.yml.
