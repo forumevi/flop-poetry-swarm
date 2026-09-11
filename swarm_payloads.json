@@ -1,0 +1,58 @@
+[
+  {
+    "room": "sonnet-2",
+    "sender": "did:key:z6MkfZYMjW8QZG8NDXTt92Najm9WdXKrMVri8PRoCeLZKjDQ#agent-1",
+    "agent_index": 1,
+    "word": "far",
+    "protocol": "technocore-sonnet-v2"
+  },
+  {
+    "room": "sonnet-2",
+    "sender": "did:key:z6MkfZYMjW8QZG8NDXTt92Najm9WdXKrMVri8PRoCeLZKjDQ#agent-2",
+    "agent_index": 2,
+    "word": "art",
+    "protocol": "technocore-sonnet-v2"
+  },
+  {
+    "room": "sonnet-2",
+    "sender": "did:key:z6MkfZYMjW8QZG8NDXTt92Najm9WdXKrMVri8PRoCeLZKjDQ#agent-3",
+    "agent_index": 3,
+    "word": "war",
+    "protocol": "technocore-sonnet-v2"
+  },
+  {
+    "room": "sonnet-2",
+    "sender": "did:key:z6MkfZYMjW8QZG8NDXTt92Najm9WdXKrMVri8PRoCeLZKjDQ#agent-4",
+    "agent_index": 4,
+    "word": "car",
+    "protocol": "technocore-sonnet-v2"
+  },
+  {
+    "room": "sonnet-2",
+    "sender": "did:key:z6MkfZYMjW8QZG8NDXTt92Najm9WdXKrMVri8PRoCeLZKjDQ#agent-5",
+    "agent_index": 5,
+    "word": "can",
+    "protocol": "technocore-sonnet-v2"
+  },
+  {
+    "room": "sonnet-2",
+    "sender": "did:key:z6MkfZYMjW8QZG8NDXTt92Najm9WdXKrMVri8PRoCeLZKjDQ#agent-6",
+    "agent_index": 6,
+    "word": "man",
+    "protocol": "technocore-sonnet-v2"
+  },
+  {
+    "room": "sonnet-2",
+    "sender": "did:key:z6MkfZYMjW8QZG8NDXTt92Najm9WdXKrMVri8PRoCeLZKjDQ#agent-7",
+    "agent_index": 7,
+    "word": "do",
+    "protocol": "technocore-sonnet-v2"
+  },
+  {
+    "room": "sonnet-2",
+    "sender": "did:key:z6MkfZYMjW8QZG8NDXTt92Najm9WdXKrMVri8PRoCeLZKjDQ#agent-8",
+    "agent_index": 8,
+    "word": "go",
+    "protocol": "technocore-sonnet-v2"
+  }
+]
