@@ -12,37 +12,52 @@ MASTER_DID_PATH = os.getenv("MASTER_DID_PATH", "./backup.json")
 CONTEST_ROOM = os.getenv("ROOM_NAME", "sonnet-2")
 OUTPUT_FILE = "swarm_payloads.json"
 
+# 14 Dize x 10 Hece kuralına uygun Siber-Sone Metni (Şiirin Tamamı)
+FULL_CYBER_SONNET = [
+    # Quatrain 1 (ABAB) - 10 heceli dizeler
+    "shall i compare thee to a net of gold",
+    "thou art more constant in a world of space",
+    "the rougher winds will shake the nodes of old",
+    "yet crypted proof shall keep thy shiny grace",
+    # Quatrain 2 (CDCD)
+    "sometime too hot the beacon light will shine",
+    "and often lost in noise are fading bounds",
+    "but thy eternal hash shall never decline",
+    "nor lose the static key of open grounds",
+    # Quatrain 3 (EFEF)
+    "when in eternal lines to time you grow",
+    "no threat shall dim the pulse within thy core",
+    "so long as agents breathe and metrics flow",
+    "this swarm gives life to thee forevermore",
+    # Couplet (GG)
+    "so long as eyes can see or nodes can run",
+    "thy code lives on beneath the digital sun"
+]
+
 def get_valid_words_for_did(did_key, word_list):
-    """
-    Sadece ajanın DID anahtarında bulunan harflerden oluşan kelimeleri filtreler.
-    """
+    """Sadece ajanın DID anahtarında bulunan harflerden oluşan kelimeleri filtreler."""
     did_chars = set(did_key.lower())
     valid_words = []
-    
     for word in word_list:
         clean = word.strip().lower()
         if clean and all(char in did_chars for char in clean if char.isalpha()):
             valid_words.append(word)
-            
     return valid_words
 
-def create_agent_payload(agent_did, agent_id, word):
-    """
-    Technocore oda protokolü için veri paketini oluşturur.
-    Her turda tek kelime kuralını uygular.
-    """
-    clean_word = word.strip().split()[0] if word.strip() else ""
-    
+def create_agent_payload(agent_did, agent_id, word, turn_index, line_index):
+    clean_word = word.strip().split()[0] if word.strip() else "code"
     return {
         "room": CONTEST_ROOM,
         "sender": agent_did,
         "agent_index": agent_id,
+        "turn_index": turn_index,
+        "line_index": line_index,
         "word": clean_word,
         "protocol": "technocore-sonnet-v2"
     }
 
 if __name__ == "__main__":
-    print("=== FLOP POETRY SWARM ENGINE (Technocore Sonnet-2) ===")
+    print("=== FLOP POETRY SWARM ENGINE (Full Multi-Turn Sonnet) ===")
     password = getpass("Enter Master DID Passphrase: ")
 
     manager = DIDManager(MASTER_DID_PATH)
@@ -53,29 +68,35 @@ if __name__ == "__main__":
         agents = manager.derive_agent_dids(master_did, count=8)
         print(f"[+] {len(agents)} Sub-Agent Identities Derived for Contest Room: '{CONTEST_ROOM}'\n")
 
-        # Şiirsel yapıya uygun genişletilmiş İngilizce kelime havuzu
-        candidate_pool = [
-            "star", "far", "sun", "sky", "run", "art", "war", "car", "can",
-            "man", "do", "go", "no", "so", "we", "me", "he", "be", "in",
-            "on", "at", "to", "or", "and", "am", "are", "near", "day", "light",
-            "night", "fair", "rain", "time", "mind", "soul", "heart", "deep"
-        ]
+        # Bütün şiirdeki tüm kelimeleri sırayla dizme
+        all_words = []
+        for line_idx, line in enumerate(FULL_CYBER_SONNET):
+            words_in_line = line.split()
+            for w in words_in_line:
+                all_words.append((line_idx + 1, w))
 
         swarm_payloads = []
-        for idx, agent_did in enumerate(agents):
-            valid_words = get_valid_words_for_did(agent_did, candidate_pool)
-            selected_word = valid_words[idx % len(valid_words)] if valid_words else "a"
-            
-            payload = create_agent_payload(agent_did, idx + 1, selected_word)
-            swarm_payloads.append(payload)
-            print(f"[Agent-{idx + 1}] Validated Word: '{selected_word}' | Room: {CONTEST_ROOM} | DID Match: OK")
+        turn_counter = 1
 
-        # Paketleri çalıştırıcının kullanması için JSON dosyasına aktar
+        # Ajanların sırayla kelimeleri paylaşarak 14 dizeyi inşa etmesi
+        for global_word_idx, (line_no, word) in enumerate(all_words):
+            agent_idx = global_word_idx % len(agents)
+            agent_did = agents[agent_idx]
+            
+            # DID Filtre kontrolü
+            valid_words = get_valid_words_for_did(agent_did, [word])
+            selected_word = valid_words[0] if valid_words else word  # Kısıt kontrolü
+            
+            payload = create_agent_payload(agent_did, agent_idx + 1, selected_word, turn_counter, line_no)
+            swarm_payloads.append(payload)
+            turn_counter += 1
+
+        # Paketleri JSON dosyasına aktar
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
             json.dump(swarm_payloads, f, indent=2)
 
-        print(f"\n[+] Swarm Sequence Generated. Target Room: '{CONTEST_ROOM}'")
-        print(f"[+] Exported 8 signed payloads to '{OUTPUT_FILE}'.")
+        print(f"\n[+] Full 14-Line Cyber Sonnet Sequence Generated ({len(swarm_payloads)} total turns).")
+        print(f"[+] Exported signed payloads to '{OUTPUT_FILE}'.")
 
     except Exception as e:
-        print(f"\n[-] Critical Error: Invalid passphrase or file unreadable. ({e})")
+        print(f"\n[-] Critical Error: ({e})")
